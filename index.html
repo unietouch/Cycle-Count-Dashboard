@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cycle Count & Inventory Accuracy Dashboard</title>
+  
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap');
+
+    :root {
+      --bg: #f7f6f3;
+      --white: #ffffff;
+      --surface: #fafaf8;
+      --border: #e4e2dc;
+      --border-strong: #c8c4bb;
+      --text: #1a1917;
+      --text-secondary: #6b6760;
+      --text-muted: #a09c96;
+      --accent: #1a3a2a;
+      --accent-light: #e8f0eb;
+      --green: #2d6a4f;
+      --green-light: #e9f5ee;
+      --red: #9b2335;
+      --red-light: #fceef0;
+      --amber: #92600a;
+      --amber-light: #fef7e8;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,.06);
+      --shadow: 0 2px 8px rgba(0,0,0,.08);
+      --radius: 6px;
+      --radius-lg: 10px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding: 0 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 58px;
+    }
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .logo {
+      font-family: 'Libre Baskerville', serif;
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .logo-sub {
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding-left: 16px;
+      border-left: 1px solid var(--border);
+    }
+    .header-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      background: var(--text-muted);
+      border-radius: 50%;
+      transition: background 0.3s;
+    }
+    .status-dot.connected { background: var(--green); }
+
+    /* ── TABS ── */
+    .tabs {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding: 0 40px;
+      display: flex;
+    }
+    .tab {
+      padding: 16px 20px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* ── LAYOUT ── */
+    .main { padding: 28px 40px; max-width: 1600px; margin: 0 auto; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── CARDS & GRIDS ── */
+    .grid-dashboard {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .kpi {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+    .kpi-label { font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+    .kpi-val { font-family: 'Libre Baskerville', serif; font-size: 24px; font-weight: 700; }
+    
+    .card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* ── FORM & TABLES ── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 4px; }
+    .form-group label { font-size: 11px; font-weight: 600; color: var(--text-secondary); }
+    .form-group input, .form-group select, .form-group textarea {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px 12px;
+      color: var(--text);
+      outline: none;
+      font-family: inherit;
+    }
+    
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th { padding: 10px; border-bottom: 2px solid var(--border); font-size: 11px; text-transform: uppercase; color: var(--text-muted); }
+    td { padding: 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-weight: 500;
+      font-family: inherit;
+    }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-secondary { background: transparent; border-color: var(--border-strong); color: var(--text-secondary); }
+
+    /* ── VARIANCE CHART PILL LIST ── */
+    .variance-list { display: flex; flex-direction: column; gap: 8px; }
+    .variance-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: var(--surface);
+      border-radius: var(--radius);
+      border-left: 4px solid var(--border-strong);
+    }
+
+    #toast {
+      position: fixed;
+      bottom: 20px; right: 20px;
+      background: var(--text);
+      color: white;
+      padding: 12px 24px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">Cycle Count Hub</div>
+      <div class="logo-sub">2026 PH Calendar Database</div>
+    </div>
+    <div class="header-meta">
+      <div id="connection-indicator" class="status-dot"></div>
+      <span id="connection-text">Connecting...</span>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('dashboard')">Analytics Dashboard</div>
+    <div class="tab" onclick="switchTab('records')">Live Database Records</div>
+    <div class="tab" onclick="switchTab('entry')">Manual Entry Form</div>
+  </div>
+
+  <div class="main">
+    
+    <div class="panel active" id="panel-dashboard">
+      <div class="kpi-row">
+        <div class="kpi"><div class="kpi-label">Total Audited Lines</div><div class="kpi-val" id="kpi-total-items">0</div></div>
+        <div class="kpi"><div class="kpi-label">Overall Accuracy</div><div class="kpi-val" id="kpi-accuracy">100.00%</div></div>
+        <div class="kpi"><div class="kpi-label">Identified Variance Counts</div><div class="kpi-val" id="kpi-total-miss">0</div></div>
+      </div>
+
+      <div class="grid-dashboard">
+        <div class="card">
+          <div class="card-title">Accuracy Rate Progression Trend (2026 Philippine Weeks)</div>
+          <div style="height: 320px; position: relative;">
+            <canvas id="chart-trend-timeline"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Root Cause Reason of Variance Matrix</div>
+          <div class="variance-list" id="variance-summary-list">
+            <div class="variance-item" style="border-left-color: var(--red);">
+              <div><strong>Cut-off Volume Peak Pressures</strong></div>
+              <div id="vcount-cutoff">0 cases</div>
+            </div>
+            <div class="variance-item" style="border-left-color: var(--amber);">
+              <div><strong>Inventory Prep Processing Disruptions</strong></div>
+              <div id="vcount-prep">0 cases</div>
+            </div>
+            <div class="variance-item" style="border-left-color: #2b5c8f;">
+              <div><strong>System Transaction Timing Delays</strong></div>
+              <div id="vcount-system">0 cases</div>
+            </div>
+            <div class="variance-item" style="border-left-color: var(--text-muted);">
+              <div><strong>Unspecified / Misplacement Occurrences</strong></div>
+              <div id="vcount-other">0 cases</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-records">
+      <div class="card">
+        <div class="card-title">Active Synchronized Records Ledger Table</div>
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>PH Calendar Week</th>
+                <th>Location Area</th>
+                <th>Checker Employee</th>
+                <th>Total Checked</th>
+                <th>Variance Misses</th>
+                <th>Calculated Accuracy</th>
+                <th>Assigned Root Cause Reason</th>
+              </tr>
+            </thead>
+            <tbody id="live-records-tbody">
+              <tr><td colspan="8" style="text-align:center; color:var(--text-muted);">Loading system database collections...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-entry">
+      <div class="card">
+        <div class="card-title">Submit Local Cycle Data Metric to Cloud Supabase Store</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Transaction/Audit Entry Date</label>
+            <input type="date" id="f-date" onchange="autoCalculateWeek2026(this.value)">
+          </div>
+          <div class="form-group">
+            <label>Calculated Week Number (Philippine Calendar 2026)</label>
+            <input type="text" id="f-week-calculated" readonly placeholder="Auto-computed structural week">
+          </div>
+          <div class="form-group">
+            <label>Warehouse Storage Area Layout Zone</label>
+            <select id="f-area">
+              <option value="BST1">BST1</option>
+              <option value="BST3">BST3</option>
+              <option value="BST4">BST4</option>
+              <option value="BST5">BST5</option>
+              <option value="CRS2">CRS2</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Assigned Auditor / Checker Employee</label>
+            <input type="text" id="f-employee" placeholder="e.g., J. Villaver">
+          </div>
+          <div class="form-group">
+            <label>Total Items Handled / Sampled Count</label>
+            <input type="number" id="f-total" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label>Identified Discrepancy Variance Miss Qty</label>
+            <input type="number" id="f-miss" value="0">
+          </div>
+          <div class="form-group">
+            <label>Primary Root Cause Classification Category</label>
+            <select id="f-variance-reason">
+              <option value="None">No Discrepancy / Hit Session</option>
+              <option value="Cut-off Vol Activity">Cut-off Volume Activity Pressure</option>
+              <option value="Inventory Preparation">Inventory Preparation Week Process Shift</option>
+              <option value="System Transaction Lag">System Transaction Processing Time Lag</option>
+              <option value="Misplacement / Unknown">Storage Misplacement / Physical Variant</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="pushRecordToSupabase()">Insert Record Row to Cloud Backend</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="toast">Notifications Channel</div>
+
+  <script>
+    // ── SUPABASE CENTRAL STATE ARCHITECTURE WITH BUILT-IN CREDENTIALS ──
+    const SUPABASE_URL = "https://wbtznfsvllrxrwvwtyox.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_MevvDg-g4ijtexippnKwvw_Z7vWqGXP";
+
+    let supabaseClient = null;
+    let localDataRecords = [];
+    let lineTrendChartInstance = null;
+
+    function showToast(message) {
+      const el = document.getElementById('toast');
+      el.textContent = message;
+      el.style.opacity = '1';
+      setTimeout(() => el.style.opacity = '0', 3500);
+    }
+
+    function switchTab(targetTabId) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      
+      event.target.classList.add('active');
+      document.getElementById('panel-' + targetTabId).classList.add('active');
+      
+      if (targetTabId === 'dashboard') renderDashboardVisualizations();
+    }
+
+    // ── PHILIPPINE CALENDAR 2026 WEEK CALCULATION ──
+    function autoCalculateWeek2026(dateString) {
+      if (!dateString) return;
+      const targetDate = new Date(dateString);
+      const year = targetDate.getFullYear();
+      
+      if(year !== 2026) {
+        showToast("Notice: Calculated week maps based on structural calendar frameworks.");
+      }
+
+      // Step standard formula logic to compute week of year starting January 1st
+      const startOfYear = new Date(year, 0, 1);
+      const daysDiff = Math.floor((targetDate - startOfYear) / (24 * 60 * 60 * 1000));
+      const calculatedWeekNum = Math.ceil((daysDiff + startOfYear.getDay() + 1) / 7);
+      
+      document.getElementById('f-week-calculated').value = `WK${String(calculatedWeekNum).padStart(2, '0')}`;
+    }
+
+    // ── AUTOMATED CLIENT CONNECTION ON LOAD ──
+    function initializeSupabase() {
+      try {
+        supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        document.getElementById('connection-indicator').className = "status-dot connected";
+        document.getElementById('connection-text').textContent = "Supabase Project Live Connection";
+        
+        fetchLiveSupabaseRecords();
+      } catch (err) {
+        document.getElementById('connection-text').textContent = "Connection Initialization Error";
+        showToast("Fatal Client Exception: Connection failed.");
+      }
+    }
+
+    // ── DATABASE ACTIONS: REFRESH DATA ──
+    async function fetchLiveSupabaseRecords() {
+      if (!supabaseClient) return;
+
+      const { data, error } = await supabaseClient
+        .from('cycle_counts')
+        .select('*')
+        .order('date', { ascending: true });
+
+      if (error) {
+        showToast(`Fetch Pipeline Rejected: ${error.message}`);
+        console.error(error);
+        return;
+      }
+
+      localDataRecords = data || [];
+      populateRecordsTableGrid();
+      renderDashboardVisualizations();
+    }
+
+    // ── DATABASE ACTIONS: INSERT RECORD ROW ──
+    async function pushRecordToSupabase() {
+      if (!supabaseClient) {
+        showToast("Operation Denied: Supabase client is not connected.");
+        return;
+      }
+
+      const date = document.getElementById('f-date').value;
+      const week = document.getElementById('f-week-calculated').value;
+      const area = document.getElementById('f-area').value;
+      const employee = document.getElementById('f-employee').value.trim();
+      const total = parseInt(document.getElementById('f-total').value) || 0;
+      const miss = parseInt(document.getElementById('f-miss').value) || 0;
+      const variance_reason = document.getElementById('f-variance-reason').value;
+
+      if (!date || !employee || total <= 0) {
+        showToast("Validation Error: Please verify mandatory data field values before entry insertion.");
+        return;
+      }
+
+      const payload = {
+        date,
+        week,
+        area,
+        employee,
+        total,
+        miss,
+        variance_reason,
+        accuracy_rate: parseFloat(((total - miss) / total * 100).toFixed(4))
+      };
+
+      const { error } = await supabaseClient
+        .from('cycle_counts')
+        .insert([payload]);
+
+      if (error) {
+        showToast(`Write Transaction Aborted: ${error.message}`);
+      } else {
+        showToast("Row Successfully Committed to Supabase Database!");
+        fetchLiveSupabaseRecords();
+        
+        // Reset manual form dynamic items
+        document.getElementById('f-employee').value = '';
+        document.getElementById('f-total').value = '';
+        document.getElementById('f-miss').value = '0';
+      }
+    }
+
+    // ── LEDGER LAYOUT DATA DISPLAY ──
+    function populateRecordsTableGrid() {
+      const tbody = document.getElementById('live-records-tbody');
+      if (localDataRecords.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-muted);">Database collection is empty. Ready for manual inserts.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = localDataRecords.map(r => {
+        const accuracy = ((r.total - r.miss) / r.total * 100).toFixed(2);
+        return `
+          <tr>
+            <td>${r.date}</td>
+            <td><strong>${r.week || 'N/A'}</strong></td>
+            <td>${r.area}</td>
+            <td>${r.employee}</td>
+            <td>${r.total.toLocaleString()}</td>
+            <td style="color: ${r.miss > 0 ? 'var(--red)' : 'inherit'}">${r.miss}</td>
+            <td><strong>${accuracy}%</strong></td>
+            <td><small>${r.variance_reason || 'Unspecified'}</small></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // ── CALCULATION METRICS & ENGINE AGGREGATIONS ──
+    function renderDashboardVisualizations() {
+      if (localDataRecords.length === 0) return;
+
+      let totalAudited = 0;
+      let totalMisses = 0;
+      
+      let v_cutoff = 0;
+      let v_prep = 0;
+      let v_system = 0;
+      let v_other = 0;
+
+      const timelineLabelsMap = {};
+
+      localDataRecords.forEach(r => {
+        totalAudited += r.total;
+        totalMisses += r.miss;
+
+        if (r.miss > 0) {
+          const rText = String(r.variance_reason).toLowerCase();
+          if (rText.includes('cut-off') || rText.includes('volume')) v_cutoff++;
+          else if (rText.includes('prep') || rText.includes('inventory')) v_prep++;
+          else if (rText.includes('system') || rText.includes('lag') || rText.includes('transaction')) v_system++;
+          else v_other++;
+        }
+
+        const blockPeriodKey = r.week || r.date;
+        if (!timelineLabelsMap[blockPeriodKey]) {
+          timelineLabelsMap[blockPeriodKey] = { sampled: 0, deltaMiss: 0 };
+        }
+        timelineLabelsMap[blockPeriodKey].sampled += r.total;
+        timelineLabelsMap[blockPeriodKey].deltaMiss += r.miss;
+      });
+
+      document.getElementById('kpi-total-items').textContent = totalAudited.toLocaleString();
+      document.getElementById('kpi-total-miss').textContent = totalMisses.toLocaleString();
+      document.getElementById('kpi-accuracy').textContent = totalAudited ? ((totalAudited - totalMisses) / totalAudited * 100).toFixed(2) + "%" : "100.00%";
+
+      document.getElementById('vcount-cutoff').textContent = `${v_cutoff} variance logs`;
+      document.getElementById('vcount-prep').textContent = `${v_prep} variance logs`;
+      document.getElementById('vcount-system').textContent = `${v_system} variance logs`;
+      document.getElementById('vcount-other').textContent = `${v_other} variance logs`;
+
+      const orderedLabels = Object.keys(timelineLabelsMap).sort();
+      const calculatedTrendLinePoints = orderedLabels.map(key => {
+        const obj = timelineLabelsMap[key];
+        return obj.sampled ? ((obj.sampled - obj.deltaMiss) / obj.sampled * 100).toFixed(2) : 100;
+      });
+
+      if (lineTrendChartInstance) lineTrendChartInstance.destroy();
+      
+      const ctx = document.getElementById('chart-trend-timeline').getContext('2d');
+      lineTrendChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: orderedLabels,
+          datasets: [{
+            label: 'Actual Accuracy Line Percentage Metric',
+            data: calculatedTrendLinePoints,
+            borderColor: '#1a3a2a',
+            backgroundColor: 'rgba(26,58,42,0.05)',
+            tension: 0.2,
+            fill: true,
+            borderWidth: 2,
+            pointRadius: 4
+          }, {
+            label: 'Control Standard Floor Baseline KPI Target',
+            data: orderedLabels.map(() => 100.00),
+            borderColor: '#c8c4bb',
+            borderDash: [6, 4],
+            pointRadius: 0,
+            fill: false
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              min: 90,
+              max: 101,
+              ticks: { callback: value => value + "%" }
+            }
+          },
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12 } }
+          }
+        }
+      });
+    }
+
+    // Run connection client automatically on load
+    window.addEventListener('DOMContentLoaded', initializeSupabase);
+  </script>
+</body>
+</html>
