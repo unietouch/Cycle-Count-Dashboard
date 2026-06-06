@@ -237,7 +237,10 @@ tbody tr:hover td { background: var(--surface); }
 
   <div class="panel" id="panel-records">
     <div class="card">
-      <div class="card-title">Active Audited Registry & Discrepancy Tracking Matrix</div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+        <div class="card-title" style="margin-bottom: 0;">Active Audited Registry & Discrepancy Tracking Matrix</div>
+        <button class="btn btn-ghost" style="color: var(--red); border-color: var(--red-light);" onclick="deleteAllRecords()">🗑️ Delete All Records</button>
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
@@ -693,6 +696,38 @@ function triggerToastNotification(msg) {
   toast.innerText = msg;
   toast.classList.add('show');
   setTimeout(() => toast.classList.remove('show'), 3500);
+}
+
+// Master Delete Function with Password Protection
+function deleteAllRecords() {
+  if (databaseEntries.length === 0) {
+    triggerToastNotification("No records available to delete.");
+    return;
+  }
+
+  // Prompt the user for the password
+  const passwordInput = prompt("⚠️ WARNING: You are about to delete ALL records. Enter password to confirm:");
+
+  // Check if user clicked cancel
+  if (passwordInput === null) {
+    return; 
+  }
+
+  // Validate password
+  if (passwordInput === "Anth0n") {
+    databaseEntries = []; // Clear the array
+    localStorage.removeItem('sysu_excel_records'); // Wipe local storage
+    
+    // Refresh the UI to reflect empty state
+    refreshRegistryView();
+    populateFilterOptions();
+    runFiltersAndVisuals();
+    
+    triggerToastNotification("All records have been successfully deleted.");
+  } else {
+    // Incorrect password fallback
+    triggerToastNotification("❌ Incorrect password. Deletion aborted.");
+  }
 }
 
 // Initialize system memory tables on launch mounting stages
