@@ -1,167 +1,111 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cycle Count Analytics & Tracker</title>
+<title>Cycle Count Hub - Latest</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap');
-:root {
-  --bg: #f7f6f3; --white: #ffffff; --surface: #fafaf8; --border: #e4e2dc;
-  --border-strong: #c8c4bb; --text: #1a1917; --text-secondary: #6b6760;
-  --text-muted: #a09c96; --accent: #1a3a2a; --green: #2d6a4f;
-  --red: #9b2335; --amber: #92600a; --shadow-sm: 0 1px 3px rgba(0,0,0,.06);
-  --shadow: 0 2px 8px rgba(0,0,0,.08); --radius: 6px; --radius-lg: 10px;
-}
-* { margin:0; padding:0; box-sizing:border-box; }
-body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; line-height: 1.5; }
-
-.header { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; height: 58px; }
-.logo { font-family: 'Libre Baskerville', serif; font-size: 17px; font-weight: 700; color: var(--accent); }
-.tabs { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 40px; display: flex; }
-.tab { padding: 16px 20px; font-size: 13px; font-weight: 500; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; }
-.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-.main { padding: 28px 40px; max-width: 1600px; margin: 0 auto; }
-.panel { display: none; } .panel.active { display: block; }
-
-.card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; box-shadow: var(--shadow-sm); margin-bottom: 20px; }
-.card-title { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; color: var(--text-secondary); margin-bottom: 18px; }
-.filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
-.form-group { display: flex; flex-direction: column; gap: 4px; }
-.form-group input, .form-group select, .form-group textarea { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; font-family: inherit; }
-.btn { padding: 9px 18px; border-radius: var(--radius); border: 1px solid transparent; font-weight: 500; cursor: pointer; }
-.btn-primary { background: var(--accent); color: white; }
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; }
-th { padding: 12px 10px; border-bottom: 2px solid var(--border); font-size: 11px; text-transform: uppercase; color: var(--text-muted); }
-td { padding: 12px 10px; border-bottom: 1px solid var(--border); }
-.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
-.modal-overlay.open { display: flex; }
-.modal { background: var(--white); border-radius: var(--radius-lg); padding: 24px; width: 480px; }
-#toast { position: fixed; bottom: 20px; right: 20px; background: var(--text); color: white; padding: 10px 20px; border-radius: var(--radius); opacity: 0; transition: opacity 0.3s; z-index: 1000; }
-#toast.show { opacity: 1; }
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&display=swap');
+  :root { --bg: #f7f6f3; --white: #ffffff; --accent: #1a3a2a; --red: #9b2335; --border: #e4e2dc; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+  .card { background: var(--white); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+  .filter-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+  .btn { padding: 10px 20px; border-radius: 5px; cursor: pointer; border: none; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 12px; border-bottom: 1px solid var(--border); text-align: left; }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <div class="logo">Cycle Count Hub</div>
-  <span id="hdr-summary">0 Records Total</span>
-</div>
-
-<div class="tabs">
-  <div class="tab active" data-tab="dashboard">Dashboard</div>
-  <div class="tab" data-tab="entry">Upload / Entry</div>
-  <div class="tab" data-tab="records">Ledger</div>
-</div>
-
-<div class="main">
-  <!-- DASHBOARD -->
-  <div class="panel active" id="panel-dashboard">
-    <div class="card">
-      <div class="card-title">Filter Data Scope</div>
-      <div class="filter-grid">
-        <div class="form-group"><label>Month</label><select id="filter-month" onchange="runFiltersAndVisuals()"><option value="ALL">All</option></select></div>
-        <div class="form-group"><label>Area</label><select id="filter-area" onchange="runFiltersAndVisuals()"><option value="ALL">All</option></select></div>
-        <div class="form-group"><label>Reason</label><select id="filter-reason" onchange="runFiltersAndVisuals()"><option value="ALL">All</option></select></div>
-      </div>
-    </div>
-    <div class="card"><canvas id="chart-trend-timeline" height="300"></canvas></div>
-  </div>
-
-  <!-- UPLOAD -->
-  <div class="panel" id="panel-entry">
-    <div class="card">
-      <div class="card-title">Upload sample.xlsx</div>
-      <div class="drop-zone" style="border: 2px dashed var(--border-strong); padding: 30px; text-align: center;">
-        <input type="file" id="file-uploader" accept=".xlsx" onchange="parseExcelWorkbook(this)">
-        <p>Click or Drag sample.xlsx here</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- LEDGER -->
-  <div class="panel" id="panel-records">
-    <div class="card">
-      <button class="btn" style="background:var(--red); color:white; margin-bottom:15px;" onclick="clearAllData()">Clear All Records (Password Req)</button>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Date</th><th>Month</th><th>Custodian</th><th>Area</th><th>Total</th><th>Miss</th><th>Action</th></tr></thead>
-          <tbody id="ledger-tbody"></tbody>
-        </table>
-      </div>
-    </div>
+<div class="card">
+  <h2>Cycle Count Hub</h2>
+  <div class="filter-grid">
+    <select id="filter-month" onchange="updateDashboard()"><option value="ALL">All Months</option></select>
+    <select id="filter-area" onchange="updateDashboard()"><option value="ALL">All Areas</option></select>
+    <select id="filter-reason" onchange="updateDashboard()"><option value="ALL">All Reasons</option></select>
   </div>
 </div>
 
-<div class="modal-overlay" id="correction-modal">
-  <div class="modal">
-    <div class="modal-title">Log Mitigation</div>
-    <textarea id="pop-reason" placeholder="Reason..." style="width:100%; margin-bottom:10px;"></textarea>
-    <button class="btn btn-primary" onclick="persistLogChanges()">Save</button>
-  </div>
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+  <div class="card">TOTAL AUDITED<div id="kpi-total" style="font-size:24px; font-weight:bold;">0</div></div>
+  <div class="card">ACCURACY<div id="kpi-acc" style="font-size:24px; font-weight:bold;">100%</div></div>
+  <div class="card">MISSES<div id="kpi-miss" style="font-size:24px; font-weight:bold;">0</div></div>
 </div>
 
-<div id="toast"></div>
+<div class="card">
+  <h3>Manual Entry</h3>
+  <input type="date" id="m-date"> <input type="text" id="m-area" placeholder="Area"> <input type="text" id="m-reason" placeholder="Reason">
+  <button class="btn" onclick="addManualEntry()">Add/Overwrite Entry</button>
+  <button class="btn" style="background:var(--red); color:white;" onclick="clearAllData()">Clear All (Pass: Anth0n)</button>
+</div>
+
+<div class="card">
+  <input type="file" accept=".xlsx" onchange="parseExcel(this)">
+  <table>
+    <thead><tr><th>Date</th><th>Area</th><th>Reason</th><th>Total</th><th>Miss</th></tr></thead>
+    <tbody id="ledger"></tbody>
+  </table>
+</div>
 
 <script>
-let databaseEntries = JSON.parse(localStorage.getItem('sysu_excel_records')) || [];
-let activeRecordId = null;
+  let data = JSON.parse(localStorage.getItem('cc_data')) || [];
 
-function parseExcelWorkbook(element) {
-  const file = element.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-    const jsonRows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-    let inserted = 0;
-    jsonRows.forEach(row => {
-      const exists = databaseEntries.some(i => i.date === (row.DATE || row.Date) && i.area === row.AREA);
-      if (!exists) {
-        databaseEntries.push({ uid: Math.random().toString(36).substr(2, 9), date: row.DATE, month: row.MONTH, area: row.AREA, custodian: row.CUSTODIAN, total: row.TOTAL, miss: row.MISS, reasonOfMiss: "" });
-        inserted++;
-      }
-    });
-    refreshRegistryView();
-    triggerToastNotification(`Imported ${inserted} new records.`);
-  };
-  reader.readAsArrayBuffer(file);
-}
+  function updateDashboard() {
+    const month = document.getElementById('filter-month').value;
+    const area = document.getElementById('filter-area').value;
+    const reason = document.getElementById('filter-reason').value;
+    
+    const filtered = data.filter(i => 
+      (month === 'ALL' || i.month === month) && 
+      (area === 'ALL' || i.area === area) && 
+      (reason === 'ALL' || i.reason === reason)
+    );
 
-function clearAllData() {
-  const pass = prompt("Enter Password:");
-  if (pass === "Anth0n") {
-    if (confirm("Confirm wipe?")) {
-      databaseEntries = [];
-      localStorage.removeItem('sysu_excel_records');
-      refreshRegistryView();
-      triggerToastNotification("Wiped.");
+    let tot = filtered.reduce((s, i) => s + (parseInt(i.total) || 0), 0);
+    let mis = filtered.reduce((s, i) => s + (parseInt(i.miss) || 0), 0);
+    document.getElementById('kpi-total').innerText = tot;
+    document.getElementById('kpi-miss').innerText = mis;
+    document.getElementById('kpi-acc').innerText = tot ? ((tot - mis) / tot * 100).toFixed(1) + '%' : '100%';
+    
+    document.getElementById('ledger').innerHTML = filtered.map(i => 
+      `<tr><td>${i.date}</td><td>${i.area}</td><td>${i.reason}</td><td>${i.total}</td><td>${i.miss}</td></tr>`).join('');
+  }
+
+  function addManualEntry() {
+    const entry = { date: document.getElementById('m-date').value, area: document.getElementById('m-area').value, reason: document.getElementById('m-reason').value, total: 0, miss: 0 };
+    const idx = data.findIndex(i => i.date === entry.date && i.area === entry.area);
+    if(idx > -1) {
+      if(confirm("Record exists. Overwrite?")) data[idx] = entry;
+    } else {
+      data.push(entry);
     }
-  } else { alert("Denied."); }
-}
+    saveAndRefresh();
+  }
 
-function refreshRegistryView() {
-  localStorage.setItem('sysu_excel_records', JSON.stringify(databaseEntries));
-  document.getElementById('hdr-summary').innerText = databaseEntries.length + " Records";
-  const tbody = document.getElementById('ledger-tbody');
-  tbody.innerHTML = databaseEntries.map(i => `<tr><td>${i.date}</td><td>${i.month}</td><td>${i.custodian}</td><td>${i.area}</td><td>${i.total}</td><td>${i.miss}</td><td><button onclick="activeRecordId='${i.uid}'; document.getElementById('correction-modal').classList.add('open')">Log</button></td></tr>`).join('');
-}
+  function parseExcel(el) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+      rows.forEach(r => {
+        if(!data.some(i => i.date === r.DATE && i.area === r.AREA)) data.push({ date: r.DATE, area: r.AREA, reason: r.REASON, total: r.TOTAL, miss: r.MISS });
+      });
+      saveAndRefresh();
+    };
+    reader.readAsArrayBuffer(el.files[0]);
+  }
 
-function runFiltersAndVisuals() {
-    // Logic for chart/filter updates goes here
-}
+  function clearAllData() {
+    if(prompt("Enter Password:") === "Anth0n") { data = []; saveAndRefresh(); }
+  }
 
-function triggerToastNotification(msg) {
-  const t = document.getElementById('toast');
-  t.innerText = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3000);
-}
-
-refreshRegistryView();
+  function saveAndRefresh() {
+    localStorage.setItem('cc_data', JSON.stringify(data));
+    updateDashboard();
+  }
+  updateDashboard();
 </script>
 </body>
 </html>
