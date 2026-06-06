@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cycle Count Analytics & Tracker</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<!-- SheetJS Library for Native XLSX File reading -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <style>
@@ -68,6 +67,10 @@ body {
 .main { padding: 28px 40px; max-width: 1600px; margin: 0 auto; }
 .panel { display: none; }
 .panel.active { display: block; }
+
+/* FILTERS ROW */
+.filter-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 20px; box-shadow: var(--shadow-sm); margin-bottom: 20px; }
+.filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
 
 /* KPI CARDS */
 .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
@@ -144,8 +147,32 @@ tbody tr:hover td { background: var(--surface); }
 
 <div class="main">
 
-  <!-- ════════════════ TAB: ANALYTICS DASHBOARD ════════════════ -->
   <div class="panel active" id="panel-dashboard">
+    
+    <div class="filter-card">
+      <div class="card-title" style="margin-bottom: 10px;">📊 Filter Dashboard Data Scope</div>
+      <div class="filter-grid">
+        <div class="form-group">
+          <label>By Month</label>
+          <select id="filter-month" onchange="runFiltersAndVisuals()">
+            <option value="ALL">-- Show All Months --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>By Storage Area</label>
+          <select id="filter-area" onchange="runFiltersAndVisuals()">
+            <option value="ALL">-- Show All Areas --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>By Reason of Miss</label>
+          <select id="filter-reason" onchange="runFiltersAndVisuals()">
+            <option value="ALL">-- Show All Reasons --</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
     <div class="kpi-row">
       <div class="kpi"><div class="kpi-label">Total Audited Lines</div><div class="kpi-val" id="kpi-total-items">0</div></div>
       <div class="kpi"><div class="kpi-label">Overall Accuracy</div><div class="kpi-val" id="kpi-accuracy">100.00%</div></div>
@@ -153,15 +180,13 @@ tbody tr:hover td { background: var(--surface); }
     </div>
 
     <div class="grid-dashboard">
-      <!-- Main Timeline Chart Display Window -->
       <div class="card">
-        <div class="card-title">Accuracy Rate Progression Trend (By Sample Data Weeks)</div>
+        <div class="card-title">Accuracy Rate Progression Trend (By Sorted Active Weeks)</div>
         <div style="height: 340px; position: relative;">
           <canvas id="chart-trend-timeline"></canvas>
         </div>
       </div>
 
-      <!-- Action Tracking Summary Sidebar List -->
       <div class="card">
         <div class="card-title">Correction Progress Pipeline</div>
         <div class="variance-list">
@@ -174,19 +199,15 @@ tbody tr:hover td { background: var(--surface); }
             <div id="vcount-pending" style="font-weight: 600; color: var(--amber);">0 pending</div>
           </div>
           <div class="variance-item" style="border-left-color: var(--border-strong);">
-            <div><strong>Total Logged Discrepancy Rows</strong></div>
+            <div><strong>Filtered Error Rows</strong></div>
             <div id="vcount-total" style="font-weight: 600;">0 incidents</div>
           </div>
         </div>
-        <p style="font-size: 11.5px; color: var(--text-muted); margin-top: 15px; line-height: 1.4;">
-          💡 <em>Tip: Go to the "Live Data Ledger" tab and click any red <strong>MISS</strong> badge to update its reason and correction status.</em>
-        </p>
       </div>
     </div>
   </div>
 
 
-  <!-- ════════════════ TAB: UPLOAD / ENTRY ════════════════ -->
   <div class="panel" id="panel-entry">
     <div class="card" style="margin-bottom: 20px;">
       <div class="card-title">Upload Excel File (sample.xlsx)</div>
@@ -194,7 +215,7 @@ tbody tr:hover td { background: var(--surface); }
         <input type="file" id="file-uploader" accept=".xlsx, .xls" onchange="parseExcelWorkbook(this)">
         <div style="font-size: 28px; margin-bottom: 8px;">📂</div>
         <strong>Drag & drop sample.xlsx here or click to browse</strong>
-        <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Reads columns: DATE, CUSTODIAN, AREA, TOTAL, MISS, Column1</p>
+        <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Existing exact date records will be auto-ignored to protect entries.</p>
       </div>
     </div>
 
@@ -202,6 +223,7 @@ tbody tr:hover td { background: var(--surface); }
       <div class="card-title">Manual Row Entry Alternative</div>
       <div class="form-grid">
         <div class="form-group"><label>Date</label><input type="date" id="f-date"></div>
+        <div class="form-group"><label>Month Label</label><input type="text" id="f-month" placeholder="e.g., January"></div>
         <div class="form-group"><label>Week Track Number</label><input type="text" id="f-week" placeholder="e.g., Week 1"></div>
         <div class="form-group"><label>Custodian / Checker</label><input type="text" id="f-custodian" placeholder="e.g., R.Calma"></div>
         <div class="form-group"><label>Area Layout</label><input type="text" id="f-area" placeholder="e.g., BST5"></div>
@@ -213,7 +235,6 @@ tbody tr:hover td { background: var(--surface); }
   </div>
 
 
-  <!-- ════════════════ TAB: DATA RECORDS LEDGER ════════════════ -->
   <div class="panel" id="panel-records">
     <div class="card">
       <div class="card-title">Active Audited Registry & Discrepancy Tracking Matrix</div>
@@ -222,6 +243,7 @@ tbody tr:hover td { background: var(--surface); }
           <thead>
             <tr>
               <th>Date</th>
+              <th>Month</th>
               <th>Week</th>
               <th>Custodian</th>
               <th>Area</th>
@@ -236,7 +258,7 @@ tbody tr:hover td { background: var(--surface); }
             </tr>
           </thead>
           <tbody id="ledger-tbody">
-            <tr><td colspan="12" style="text-align: center; color: var(--text-muted);">No operational data records available. Please import sample.xlsx.</td></tr>
+            <tr><td colspan="13" style="text-align: center; color: var(--text-muted);">No operational data records available. Please import sample.xlsx.</td></tr>
           </tbody>
         </table>
       </div>
@@ -245,7 +267,6 @@ tbody tr:hover td { background: var(--surface); }
 
 </div>
 
-<!-- REASON OF MISS AND ACTION TAKEN DIALOG POPUP WINDOW MODAL -->
 <div class="modal-overlay" id="correction-modal">
   <div class="modal">
     <div class="modal-title">📌 Log Discrepancy Mitigation</div>
@@ -279,12 +300,12 @@ tbody tr:hover td { background: var(--surface); }
 <div id="toast">Message Handler Channel</div>
 
 <script>
-// Main internal dataset container
+// Main internal database state array container
 let databaseEntries = JSON.parse(localStorage.getItem('sysu_excel_records')) || [];
 let activeRecordId = null;
 let lineTrendChartInstance = null;
 
-// Routing Configuration Engine
+// Navigation Routing Engine
 document.querySelectorAll('.tabs .tab').forEach(element => {
   element.addEventListener('click', () => {
     document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
@@ -293,12 +314,13 @@ document.querySelectorAll('.tabs .tab').forEach(element => {
     document.getElementById(`panel-${element.dataset.tab}`).classList.add('active');
     
     if (element.dataset.tab === 'dashboard') {
-      renderDashboardVisualizations();
+      populateFilterOptions();
+      runFiltersAndVisuals();
     }
   });
 });
 
-// Excel Parsing Pipeline matching sample.xlsx structural parameters
+// Parse Excel workbook with built-in ignore condition logic for duplicate records
 function parseExcelWorkbook(element) {
   const file = element.files[0];
   if (!file) return;
@@ -312,13 +334,16 @@ function parseExcelWorkbook(element) {
       const jsonRows = XLSX.utils.sheet_to_json(activeSheet);
 
       if(jsonRows.length === 0) {
-        triggerToastNotification("Uploaded spreadsheet file contains empty headers.");
+        triggerToastNotification("Uploaded spreadsheet file contains empty rows.");
         return;
       }
 
-      let importCounter = 0;
+      let insertedCount = 0;
+      let ignoredCount = 0;
+
       jsonRows.forEach(row => {
         let origDate = row.DATE || row.Date || "";
+        let monthLabel = row.MONTH || row.Month || "";
         let weekLabel = row.Column1 || row.WEEK || row.Week || "N/A";
         let custodian = row.CUSTODIAN || row.Custodian || "System Upload";
         let area = row.AREA || row.Area || "N/A";
@@ -329,69 +354,176 @@ function parseExcelWorkbook(element) {
           origDate = new Date(Date.UTC(0, 0, origDate - 1)).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
         }
 
-        databaseEntries.push({
-          uid: 'id_' + Math.random().toString(36).substr(2, 9),
-          date: origDate,
-          week: weekLabel,
-          custodian: custodian,
-          area: area,
-          total: total,
-          miss: miss,
-          reasonOfMiss: row['Reason of Miss'] || row.reason || "",
-          actionTaken: row['Action Taken'] || row.action || "",
-          correctionStatus: miss > 0 ? (row['Correction Status'] || row.status || "Pending") : ""
-        });
-        importCounter++;
+        // If month is completely missing from row data, infer it from date structure
+        if (!monthLabel && origDate) {
+          const splitData = origDate.split(' ');
+          monthLabel = splitData[0] || "Unknown";
+        }
+
+        // DUPLICATE RECORD PROTECTION RULE: Match based on key metrics
+        const alreadyExists = databaseEntries.some(item => 
+          item.date === origDate && 
+          item.custodian.toLowerCase() === custodian.toLowerCase() && 
+          item.area.toLowerCase() === area.toLowerCase()
+        );
+
+        if (alreadyExists) {
+          ignoredCount++;
+        } else {
+          databaseEntries.push({
+            uid: 'id_' + Math.random().toString(36).substr(2, 9),
+            date: origDate,
+            month: monthLabel,
+            week: weekLabel,
+            custodian: custodian,
+            area: area,
+            total: total,
+            miss: miss,
+            reasonOfMiss: row['Reason of Miss'] || row.reason || "",
+            actionTaken: row['Action Taken'] || row.action || "",
+            correctionStatus: miss > 0 ? (row['Correction Status'] || row.status || "Pending") : ""
+          });
+          insertedCount++;
+        }
       });
 
       refreshRegistryView();
-      triggerToastNotification(`Successfully loaded ${importCounter} lines from workbook!`);
-      
-      // Send directly to dashboard review space
+      populateFilterOptions();
+      triggerToastNotification(`Processed: Imported ${insertedCount} new entries. Skipped ${ignoredCount} duplicates.`);
       document.querySelector('[data-tab="dashboard"]').click();
 
     } catch (error) {
       console.error(error);
-      triggerToastNotification("Failed parsing structural definitions inside workbook template.");
+      triggerToastNotification("Failed parsing workbook configurations layout.");
     }
   };
   reader.readAsArrayBuffer(file);
   element.value = "";
 }
 
+// Manual row handler with built-in collision detection prompt option to overwrite
 function submitManualRow() {
   const dateInput = document.getElementById('f-date').value;
+  let monthLabel = document.getElementById('f-month').value.trim();
   const weekLabel = document.getElementById('f-week').value.trim() || "Manual";
   const custodian = document.getElementById('f-custodian').value.trim();
   const area = document.getElementById('f-area').value.trim();
   const total = parseInt(document.getElementById('f-total').value, 10) || 0;
   const miss = parseInt(document.getElementById('f-miss').value, 10) || 0;
 
-  if(!dateInput || !custodian) {
-    triggerToastNotification("Please fill out Date and Custodian parameters.");
+  if(!dateInput || !custodian || !area) {
+    triggerToastNotification("Please fill out Date, Custodian, and Area parameters.");
     return;
   }
 
-  databaseEntries.unshift({
-    uid: 'id_' + Math.random().toString(36).substr(2, 9),
-    date: dateInput,
-    week: weekLabel,
-    custodian: custodian,
-    area: area,
-    total: total,
-    miss: miss,
-    reasonOfMiss: "",
-    actionTaken: "",
-    correctionStatus: miss > 0 ? "Pending" : ""
-  });
+  if (!monthLabel) {
+    const parsedDate = new Date(dateInput);
+    const monthsArray = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    monthLabel = monthsArray[parsedDate.getMonth()] || "Manual";
+  }
+
+  // Find exact collision entry item
+  const existingRecordIndex = databaseEntries.findIndex(item => 
+    item.date === dateInput && 
+    item.custodian.toLowerCase() === custodian.toLowerCase() && 
+    item.area.toLowerCase() === area.toLowerCase()
+  );
+
+  if (existingRecordIndex !== -1) {
+    const confirmation = confirm("An existing record with this Date, Custodian, and Area already exists. Do you want to OVERWRITE it?");
+    if (!confirmation) {
+      triggerToastNotification("Operation aborted. Data was not modified.");
+      return;
+    }
+    // Overwrite target matched item
+    databaseEntries[existingRecordIndex] = {
+      ...databaseEntries[existingRecordIndex],
+      month: monthLabel,
+      week: weekLabel,
+      total: total,
+      miss: miss,
+      correctionStatus: miss > 0 ? "Pending" : ""
+    };
+    triggerToastNotification("Existing line record was successfully overwritten.");
+  } else {
+    // Standard insert unshift process
+    databaseEntries.unshift({
+      uid: 'id_' + Math.random().toString(36).substr(2, 9),
+      date: dateInput,
+      month: monthLabel,
+      week: weekLabel,
+      custodian: custodian,
+      area: area,
+      total: total,
+      miss: miss,
+      reasonOfMiss: "",
+      actionTaken: "",
+      correctionStatus: miss > 0 ? "Pending" : ""
+    });
+    triggerToastNotification("Manual entry row saved cleanly!");
+  }
 
   refreshRegistryView();
-  triggerToastNotification("Manual entry row saved successfully!");
+  populateFilterOptions();
   
   document.getElementById('f-custodian').value = "";
   document.getElementById('f-area').value = "";
+  document.getElementById('f-month').value = "";
   document.getElementById('f-total').value = "0";
   document.getElementById('f-miss').value = "0";
+}
+
+// Dynamically harvest distinct values to build dropdown criteria selections
+function populateFilterOptions() {
+  const selectMonth = document.getElementById('filter-month');
+  const selectArea = document.getElementById('filter-area');
+  const selectReason = document.getElementById('filter-reason');
+
+  // Keep active selections safe during collection rebuild arrays
+  const savedM = selectMonth.value;
+  const savedA = selectArea.value;
+  const savedR = selectReason.value;
+
+  const monthSet = new Set();
+  const areaSet = new Set();
+  const reasonSet = new Set();
+
+  databaseEntries.forEach(item => {
+    if (item.month) monthSet.add(item.month);
+    if (item.area) areaSet.add(item.area);
+    if (item.reasonOfMiss) reasonSet.add(item.reasonOfMiss);
+  });
+
+  selectMonth.innerHTML = '<option value="ALL">-- Show All Months --</option>';
+  Array.from(monthSet).sort().forEach(m => { selectMonth.innerHTML += `<option value="${m}">${m}</option>`; });
+
+  selectArea.innerHTML = '<option value="ALL">-- Show All Areas --</option>';
+  Array.from(areaSet).sort().forEach(a => { selectArea.innerHTML += `<option value="${a}">${a}</option>`; });
+
+  selectReason.innerHTML = '<option value="ALL">-- Show All Reasons --</option>';
+  Array.from(reasonSet).sort().forEach(r => { selectReason.innerHTML += `<option value="${r}">${r}</option>`; });
+
+  // Restore state parameters cleanly
+  if(Array.from(monthSet).includes(savedM)) selectMonth.value = savedM;
+  if(Array.from(areaSet).includes(savedA)) selectArea.value = savedA;
+  if(Array.from(reasonSet).includes(savedR)) selectReason.value = savedR;
+}
+
+// Central filtering execution matrix logic engine
+function runFiltersAndVisuals() {
+  const targetMonth = document.getElementById('filter-month').value;
+  const targetArea = document.getElementById('filter-area').value;
+  const targetReason = document.getElementById('filter-reason').value;
+
+  // Process item rules down stream matrix array array filter definitions
+  const filteredData = databaseEntries.filter(item => {
+    const matchM = (targetMonth === 'ALL' || item.month === targetMonth);
+    const matchA = (targetArea === 'ALL' || item.area === targetArea);
+    const matchR = (targetReason === 'ALL' || item.reasonOfMiss === targetReason);
+    return matchM && matchA && matchR;
+  });
+
+  renderDashboardVisualizations(filteredData);
 }
 
 function renderLedgerMarkup() {
@@ -399,7 +531,7 @@ function renderLedgerMarkup() {
   container.innerHTML = "";
 
   if(databaseEntries.length === 0) {
-    container.innerHTML = `<tr><td colspan="12" style="text-align: center; color: var(--text-muted);">No operational data records available. Please import sample.xlsx.</td></tr>`;
+    container.innerHTML = `<tr><td colspan="13" style="text-align: center; color: var(--text-muted);">No operational data records available. Please import sample.xlsx.</td></tr>`;
     return;
   }
 
@@ -417,6 +549,7 @@ function renderLedgerMarkup() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${item.date}</td>
+      <td>${item.month || '-'}</td>
       <td><strong>${item.week}</strong></td>
       <td>${item.custodian}</td>
       <td><strong>${item.area}</strong></td>
@@ -437,10 +570,8 @@ function renderLedgerMarkup() {
   });
 }
 
-// ── ENGINE AGGREGATIONS & GRAPHICS RENDERING ──
-function renderDashboardVisualizations() {
-  if (databaseEntries.length === 0) return;
-
+// Render calculations and visualization metrics based on selected view criteria arrays
+function renderDashboardVisualizations(dataPool = databaseEntries) {
   let totalLinesChecked = 0;
   let totalMissesFound = 0;
   let countsCorrected = 0;
@@ -449,7 +580,7 @@ function renderDashboardVisualizations() {
 
   const weekGroupingAggregator = {};
 
-  databaseEntries.forEach(item => {
+  dataPool.forEach(item => {
     totalLinesChecked += item.total;
     totalMissesFound += item.miss;
 
@@ -459,7 +590,6 @@ function renderDashboardVisualizations() {
       else countsPending++;
     }
 
-    // Accumulate layout parameters grouped cleanly by Week designations
     const weekKey = item.week || "N/A";
     if (!weekGroupingAggregator[weekKey]) {
       weekGroupingAggregator[weekKey] = { sampled: 0, skipped: 0 };
@@ -468,18 +598,15 @@ function renderDashboardVisualizations() {
     weekGroupingAggregator[weekKey].skipped += item.miss;
   });
 
-  // Inject UI value sets
   document.getElementById('kpi-total-items').textContent = totalLinesChecked.toLocaleString();
   document.getElementById('kpi-total-miss').textContent = totalMissesFound.toLocaleString();
   document.getElementById('kpi-accuracy').textContent = totalLinesChecked ? (((totalLinesChecked - totalMissesFound) / totalLinesChecked) * 100).toFixed(2) + "%" : "100.00%";
 
   document.getElementById('vcount-corrected').textContent = `${countsCorrected} resolved`;
   document.getElementById('vcount-pending').textContent = `${countsPending} open loops`;
-  document.getElementById('vcount-total').textContent = `${exactMissIncidentCount} error records`;
+  document.getElementById('vcount-total').textContent = `${exactMissIncidentCount} incidents match`;
 
-  // Plot Chart Data Configuration
   const dynamicSortedWeeks = Object.keys(weekGroupingAggregator).sort((a,b) => {
-    // Basic sorting for strings like 'Week 1', 'Week 2'
     return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
   });
   
@@ -496,7 +623,7 @@ function renderDashboardVisualizations() {
     data: {
       labels: dynamicSortedWeeks,
       datasets: [{
-        label: 'Cycle Count Accuracy',
+        label: 'Accuracy Rate Score',
         data: weeklyCalculatedAccuracyDataset,
         borderColor: '#1a3a2a',
         backgroundColor: 'rgba(26,58,42,0.04)',
@@ -510,15 +637,9 @@ function renderDashboardVisualizations() {
       responsive: true,
       maintainAspectRatio: false,
       scales: {
-        y: {
-          min: 80,
-          max: 100,
-          ticks: { callback: v => v + "%" }
-        }
+        y: { min: 70, max: 100, ticks: { callback: v => v + "%" } }
       },
-      plugins: {
-        legend: { display: false }
-      }
+      plugins: { legend: { display: false } }
     }
   });
 }
@@ -545,8 +666,9 @@ function persistLogChanges() {
     targetObj.correctionStatus = document.getElementById('pop-status').value;
 
     refreshRegistryView();
-    renderDashboardVisualizations();
-    triggerToastNotification("Action parameter items successfully logged.");
+    populateFilterOptions();
+    runFiltersAndVisuals();
+    triggerToastNotification("Action entries successfully updated.");
     toggleModalVisibility(false);
   }
 }
@@ -570,12 +692,13 @@ function triggerToastNotification(msg) {
   const toast = document.getElementById('toast');
   toast.innerText = msg;
   toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 3000);
+  setTimeout(() => toast.classList.remove('show'), 3500);
 }
 
-// Kickstart initial run on page mount
+// Initialize system memory tables on launch mounting stages
 refreshRegistryView();
-renderDashboardVisualizations();
+populateFilterOptions();
+runFiltersAndVisuals();
 </script>
 </body>
 </html>
